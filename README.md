@@ -12,6 +12,7 @@
 [![Issues](https://img.shields.io/github/issues/flintsh/reve-sdk.svg?style=flat-square&logo=github)](https://github.com/flintsh/reve-sdk/issues)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![CI](https://github.com/flintsh/reve-sdk/actions/workflows/quality.yml/badge.svg?style=flat-square&logo=github-actions)](https://github.com/flintsh/reve-sdk/actions/workflows/quality.yml)
+[![Discord](https://img.shields.io/discord/1234567890?style=flat-square&logo=discord&label=Discord&color=5865F2)](https://discord.gg/stHhnV4aSu)
 
 </div>
 
@@ -120,6 +121,10 @@ This will log detailed information about:
 - Detailed error information with request/response context
 
 The verbose mode is particularly helpful for troubleshooting authentication, API endpoint, or project ID issues.
+
+## Support Discord
+
+If you need help using the SDK feel free to join my [support Discord](https://discord.gg/stHhnV4aSu)!
 
 ## API Reference
 
