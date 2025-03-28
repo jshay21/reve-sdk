@@ -235,13 +235,74 @@ export class ReveAI {
   }
 
   /**
+   * Enhance a prompt using Reve AI's prompt enhancement model
+   * @param prompt The original prompt to enhance
+   * @param numVariants Number of enhanced prompt variants to generate
+   * @returns Promise resolving to an array of enhanced prompts
+   */
+  private async enhancePrompt(prompt: string, numVariants: number = 4): Promise<string[]> {
+    try {
+      const payload = {
+        inputs: {
+          num_variants: numVariants,
+          prompt: prompt
+        },
+        model_id: "promptenhancer_v1/prod/20250224-0952",
+        project_id: await this.getProjectId()
+      };
+
+      if (this.options.verbose) {
+        console.log(`Enhancing prompt with ${numVariants} variants:`, prompt);
+      }
+
+      const response = await this.apiClient.post(
+        '/api/misc/model_infer_sync',
+        payload
+      );
+
+      // Process the response to get the enhanced prompts
+      if (Array.isArray(response.data) && response.data.length > 0) {
+        const lastResponse = response.data[response.data.length - 1];
+        
+        if (lastResponse.status === 'success' && 
+            lastResponse.outputs && 
+            Array.isArray(lastResponse.outputs.expanded_prompts)) {
+          
+          if (this.options.verbose) {
+            console.log('Prompt enhancement successful, generated', lastResponse.outputs.expanded_prompts.length, 'variants');
+          }
+          
+          return lastResponse.outputs.expanded_prompts;
+        }
+      }
+      
+      // If we couldn't get enhanced prompts, fall back to the original
+      if (this.options.verbose) {
+        console.log('Prompt enhancement unsuccessful, using original prompt');
+      }
+      return [prompt];
+    } catch (error) {
+      if (this.options.verbose) {
+        console.log('Error enhancing prompt:', error);
+      }
+      // On error, fall back to the original prompt
+      return [prompt];
+    }
+  }
+
+  /**
    * Generate a single image using Reve AI
    * @param options Options for image generation
+   * @param enhancedPrompt Optional pre-enhanced prompt to use
    * @returns Promise resolving to the generation result with image URL
    */
-  private async generateSingleImage(options: GenerateImageOptions): Promise<{
+  private async generateSingleImage(
+    options: GenerateImageOptions, 
+    enhancedPrompt?: string
+  ): Promise<{
     imageUrl: string;
     seed: number;
+    enhancedPrompt?: string;
   }> {
     // Get project ID
     const projectId = await this.getProjectId();
@@ -260,7 +321,30 @@ export class ReveAI {
     const height = options.height || 1024;
     const seed = options.seed === undefined ? -1 : options.seed;
     const model = options.model || 'text2image_v1/prod/20250325-2246';
-    const enhancePrompt = options.enhancePrompt ?? true;
+    const shouldEnhancePrompt = options.enhancePrompt ?? true;
+
+    // Use the provided enhanced prompt or the original
+    let finalPrompt = prompt;
+    
+    // If we have a pre-enhanced prompt, use it
+    if (enhancedPrompt && shouldEnhancePrompt) {
+      finalPrompt = enhancedPrompt;
+      
+      if (this.options.verbose) {
+        console.log('Using provided enhanced prompt:', finalPrompt);
+      }
+    }
+    // Otherwise, if prompt enhancement is enabled, enhance it now
+    else if (shouldEnhancePrompt) {
+      const enhancedPrompts = await this.enhancePrompt(prompt, 1);
+      if (enhancedPrompts.length > 0) {
+        finalPrompt = enhancedPrompts[0];
+        
+        if (this.options.verbose) {
+          console.log('Using enhanced prompt:', finalPrompt);
+        }
+      }
+    }
 
     // Create a unique ID for the generation
     const generationId = crypto.randomUUID ? crypto.randomUUID() : `gen-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
@@ -271,11 +355,11 @@ export class ReveAI {
         client_metadata: {
           aspectRatio: `${width}:${height}`,
           instruction: prompt,
-          optimizeEnabled: enhancePrompt,
+          optimizeEnabled: shouldEnhancePrompt,
           unexpandedPrompt: prompt
         },
         inference_inputs: {
-          caption: prompt,
+          caption: finalPrompt, // Use the enhanced or original prompt
           height: height,
           negative_caption: negativePrompt,
           seed: seed === -1 ? Math.floor(Math.random() * 10000000) : seed,
@@ -328,7 +412,8 @@ export class ReveAI {
     
     return {
       imageUrl: result.imageUrls[0],
-      seed: result.seed
+      seed: result.seed,
+      enhancedPrompt: finalPrompt !== prompt ? finalPrompt : undefined
     };
   }
 
@@ -350,23 +435,54 @@ export class ReveAI {
       const prompt = options.prompt;
       const negativePrompt = options.negativePrompt || '';
       const batchSize = options.batchSize || 1;
+      const enhancePrompt = options.enhancePrompt ?? true;
+
+      // If prompt enhancement is enabled and there's a batch, get all enhanced prompts up front
+      let enhancedPrompts: string[] = [];
+      if (enhancePrompt && batchSize > 1) {
+        // Get as many enhanced prompts as the batch size
+        enhancedPrompts = await this.enhancePrompt(prompt, batchSize);
+        
+        if (this.options.verbose) {
+          console.log(`Generated ${enhancedPrompts.length} enhanced prompts for batch of ${batchSize} images`);
+        }
+      }
 
       // Generate multiple images in parallel
-      const generationPromises = Array.from({ length: batchSize }, () => 
-        this.generateSingleImage({
-          ...options,
-          // Use a different seed for each image if not specified
-          seed: options.seed === undefined ? -1 : options.seed + Math.floor(Math.random() * 1000)
-        })
-      );
+      const generationPromises = Array.from({ length: batchSize }, (_, index) => {
+        // Use a different enhanced prompt for each image in the batch
+        const enhancedPrompt = enhancePrompt && enhancedPrompts.length > 0 
+          ? enhancedPrompts[index % enhancedPrompts.length] 
+          : undefined;
+          
+        return this.generateSingleImage(
+          {
+            ...options,
+            // Use a different seed for each image if not specified
+            seed: options.seed === undefined ? -1 : options.seed + Math.floor(Math.random() * 1000)
+          },
+          enhancedPrompt
+        );
+      });
 
       const results = await Promise.all(generationPromises);
       
+      // Collect all enhanced prompts that were actually used
+      const usedEnhancedPrompts = results
+        .map(r => r.enhancedPrompt)
+        .filter((p): p is string => p !== undefined);
+        
       return {
         imageUrls: results.map(r => r.imageUrl),
         seed: results[0].seed, // Use the first seed as the reference
         completedAt: new Date(),
         prompt,
+        // Return an array of all enhanced prompts if there are multiple, otherwise just the first one
+        enhancedPrompt: usedEnhancedPrompts.length > 0 
+          ? (usedEnhancedPrompts.length === 1 ? usedEnhancedPrompts[0] : usedEnhancedPrompts[0])
+          : undefined,
+        // Store all enhanced prompts if there were multiple
+        enhancedPrompts: usedEnhancedPrompts.length > 1 ? usedEnhancedPrompts : undefined,
         negativePrompt: negativePrompt || undefined,
       };
     } catch (error) {

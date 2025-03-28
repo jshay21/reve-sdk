@@ -142,6 +142,19 @@ export interface GenerateImageResult {
   prompt: string;
 
   /**
+   * The enhanced prompt used for generation (if prompt enhancement was enabled)
+   * For single image generations, this will be the enhanced prompt used
+   * For multi-image generations, this will be the first enhanced prompt used
+   */
+  enhancedPrompt?: string;
+
+  /**
+   * Array of all enhanced prompts used for generation (for multi-image generations)
+   * Only provided when batch size > 1 and multiple different enhanced prompts were used
+   */
+  enhancedPrompts?: string[];
+
+  /**
    * Any negative prompt used for generation
    */
   negativePrompt?: string;

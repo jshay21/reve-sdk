@@ -61,6 +61,7 @@ async function generateImage() {
       batchSize: 1, // How many images to generate
       seed: -1, // -1 for random seed
       model: 'text2image_v1/prod/20250325-2246', // Default model
+      enhancePrompt: true, // Whether to enhance the prompt automatically
     });
     
     // Access generated image URLs
@@ -68,6 +69,7 @@ async function generateImage() {
     console.log('Seed used:', result.seed);
     console.log('Completed at:', result.completedAt);
     console.log('Prompt:', result.prompt);
+    console.log('Enhanced Prompt:', result.enhancedPrompt);
     
     // Save the images to files
     result.imageUrls.forEach((base64Data, index) => {
@@ -172,6 +174,7 @@ Options:
 | batchSize | number | No | 1 | Number of images to generate (1-4) |
 | seed | number | No | -1 | Random seed (-1 for random) |
 | model | string | No | 'text2image_v1/prod/20250325-2246' | Model name to use for generation |
+| enhancePrompt | boolean | No | true | Whether to enhance the prompt automatically using Reve AI's prompt enhancement model |
 
 Return value:
 
@@ -181,8 +184,36 @@ Return value:
   seed: number; // The seed that was used for generation
   completedAt: Date; // Timestamp when the generation was completed
   prompt: string; // The original prompt
+  enhancedPrompt?: string; // The enhanced prompt used for generation (if enhancePrompt was enabled)
+  enhancedPrompts?: string[]; // Array of all enhanced prompts used when generating multiple images
   negativePrompt?: string; // The negative prompt, if provided
 }
+```
+
+#### Prompt Enhancement
+
+When `enhancePrompt` is set to `true` (default), the SDK will send your prompt to Reve AI's prompt enhancement model before generating the image. This model expands your prompt with additional details to improve the quality and consistency of the generated images.
+
+For example, a simple prompt like "a superhero advertising Red Bull" might be enhanced to include details about composition, lighting, style, and more specific visual elements.
+
+The enhanced prompt is available in the `enhancedPrompt` property of the result object. 
+
+When generating multiple images in a batch (using `batchSize` > 1), the SDK will:
+1. Request multiple prompt variants from the enhancement model (equal to your batch size)
+2. Use a different enhanced prompt for each image in the batch
+3. Return all the enhanced prompts used in the `enhancedPrompts` array
+
+This ensures maximum variation between the generated images in a batch, as each one will use a uniquely enhanced version of your original prompt.
+
+```typescript
+// Generate 4 images with different enhanced prompts
+const result = await reveAI.generateImage({
+  prompt: "a superhero advertising Red Bull",
+  batchSize: 4
+});
+
+// Access all enhanced prompts used
+console.log(result.enhancedPrompts);
 ```
 
 ## Error Handling
