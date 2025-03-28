@@ -100,11 +100,12 @@ To get the authorization token and cookie values:
 
 1. Log in to the Reve AI website (https://preview.reve.art)
 2. Open browser developer tools (F12) and go to the Network tab
-3. Make an API request on the site (e.g., start a generation)
-4. Find the request in the Network tab
-5. Copy the "Authorization" header value from the request headers
-6. Copy the "Cookie" header value from the request headers
-7. Copy the project ID from the request URL (format: `/api/project/{projectId}/generation`)
+3. Make an API request on the site by starting a new generation
+4. In the Network tab, look for the request that has a gear (⚙️) icon next to it - this is the generation request
+5. Click on this request and go to the Headers tab
+6. Copy the "Authorization" header value from the request headers
+7. Copy the "Cookie" header value from the request headers
+8. Copy the project ID from the request URL (format: `/api/project/{projectId}/generation`)
 
 ## Debugging
 
