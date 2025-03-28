@@ -413,7 +413,7 @@ export class ReveAI {
     return {
       imageUrl: result.imageUrls[0],
       seed: result.seed,
-      enhancedPrompt: finalPrompt !== prompt ? finalPrompt : undefined
+      enhancedPrompt: shouldEnhancePrompt && finalPrompt !== prompt ? finalPrompt : undefined
     };
   }
 
@@ -477,12 +477,13 @@ export class ReveAI {
         seed: results[0].seed, // Use the first seed as the reference
         completedAt: new Date(),
         prompt,
-        // Return an array of all enhanced prompts if there are multiple, otherwise just the first one
-        enhancedPrompt: usedEnhancedPrompts.length > 0 
-          ? (usedEnhancedPrompts.length === 1 ? usedEnhancedPrompts[0] : usedEnhancedPrompts[0])
-          : undefined,
-        // Store all enhanced prompts if there were multiple
-        enhancedPrompts: usedEnhancedPrompts.length > 1 ? usedEnhancedPrompts : undefined,
+        // Only include enhanced prompt properties when enhancePrompt is true
+        ...(enhancePrompt && usedEnhancedPrompts.length > 0 ? {
+          // Return an array of all enhanced prompts if there are multiple, otherwise just the first one
+          enhancedPrompt: usedEnhancedPrompts.length === 1 ? usedEnhancedPrompts[0] : usedEnhancedPrompts[0],
+          // Store all enhanced prompts if there were multiple
+          enhancedPrompts: usedEnhancedPrompts.length > 1 ? usedEnhancedPrompts : undefined,
+        } : {}),
         negativePrompt: negativePrompt || undefined,
       };
     } catch (error) {
